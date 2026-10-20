@@ -30,11 +30,15 @@ func (a *translationCodexAdapter) close() {
 type translationSessions struct {
 	codex *translationCodexAdapter
 	api   *apiTranslationSession
+	zcode *translationZcodeAdapter
 }
 
 func (t translationSessions) close() {
 	t.codex.close()
 	t.api.close()
+	if t.zcode != nil {
+		t.zcode.close()
+	}
 }
 
 func (s *Server) translationService(config AIConfig) (*GenerationService, translationSessions) {
@@ -50,8 +54,15 @@ func (s *Server) translationService(config AIConfig) (*GenerationService, transl
 	api := &apiTranslationSession{apiAgentAdapter: connection.Adapter.(apiAgentAdapter)}
 	connection.Adapter = api
 	service.connections["api"] = connection
+	connection = service.connections["zcode"]
+	zcode := &translationZcodeAdapter{
+		configuredCLIAdapter: connection.Adapter.(zcodeTaskAdapter).text,
+		root:                 s.Store.Root,
+	}
+	connection.Adapter = zcode
+	service.connections["zcode"] = connection
 	service.timeout = translationBatchTimeout
-	return service, translationSessions{codex, api}
+	return service, translationSessions{codex: codex, api: api, zcode: zcode}
 }
 
 func (a *translationCodexAdapter) Stream(ctx context.Context, req GenerateRequest, emit func(ProviderEvent) error) (GenerateResult, error) {

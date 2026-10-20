@@ -338,6 +338,13 @@ func invokeZcode(ctx context.Context, work, model string, in AIInput, delta func
 		return "", generationError(ErrorConfiguration, err.Error())
 	}
 	defer c.close()
+	return c.generate(s, model, in, delta)
+}
+
+// A client is owned by one sequential worker. Preserve the event cursor across
+// turns, but never carry text or completion state into the next request.
+func (c *zcodeClient) generate(s zcodeSnapshot, model string, in AIInput, delta func(string)) (string, error) {
+	var err error
 	if len(s.models()) == 0 {
 		return "", generationError(ErrorConfiguration, zcodeSetupMessage)
 	}
@@ -359,7 +366,12 @@ func invokeZcode(ctx context.Context, work, model string, in AIInput, delta func
 	for i, b := range in.images() {
 		attachments = append(attachments, map[string]any{"kind": "image", "dataBase64": base64.StdEncoding.EncodeToString(b), "filename": fmt.Sprintf("image-%d.png", i), "mimeType": "image/png", "sizeBytes": len(b)})
 	}
-	c.stream = &zcodeStream{session: c.session}
+	var seq int64
+	if c.stream != nil {
+		seq = c.stream.seq
+	}
+	c.stream = &zcodeStream{session: c.session, seq: seq}
+	c.done = false
 	c.delta = delta
 	// Apply the model explicitly before starting the turn.
 	_, err = c.request("session/setModel", map[string]any{"sessionId": c.session, "model": selection})
@@ -372,8 +384,8 @@ func invokeZcode(ctx context.Context, work, model string, in AIInput, delta func
 	for err == nil && !c.done {
 		_, err = c.read()
 	}
-	if ctx.Err() != nil {
-		return "", ctx.Err()
+	if c.ctx.Err() != nil {
+		return "", c.ctx.Err()
 	}
 	if err != nil {
 		return "", generationError(ErrorProtocol, err.Error())

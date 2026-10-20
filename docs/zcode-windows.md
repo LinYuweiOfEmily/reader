@@ -12,11 +12,15 @@ Reader 可通过 ZCode Desktop 自带的 Agent 后台运行文字问答、论文
 
 已适配 ZCode 0.16.9 的 ZCode Protocol v1。ZCode 升级后如果协议改变，Reader 会报告不兼容，不会把断流或半段结果当作成功。模型列表缓存最多五分钟；更改 ZCode 模型后可以重启 Reader 刷新。
 
-每次调用使用隔离工作目录，关闭工具和 MCP，拒绝后台向 Reader 发出的操作请求。仅转发回答正文，成功结束且全文与流式内容一致后才允许保存；取消时发送 session/stop，超时终止后台进程。GLM-5.3 是文字模型；GLM-5.3-Flash 支持图片。图片模型独立选择，默认优先 Flash，检测必须通过随机色块挑战。ZCode 0.16.9 对 GLM-5.3 返回的图片支持标记不可靠，因此 Reader 明确拒绝向该文字模型发送图片。
+问答与图片调用使用独立隔离工作目录；论文翻译由每个工作线程复用自己的隔离目录、后台进程和会话，成功批次之间不重新启动。失败、取消或模型切换会丢弃会话，后续调用重新创建；线程结束时关闭后台并清理目录。各线程不共享历史，线程内的历史由 ZCode 原生上下文管理处理。
+
+关闭工具和 MCP，拒绝后台向 Reader 发出的操作请求。仅转发回答正文，成功结束且全文与流式内容一致后才允许保存；取消时发送 session/stop，超时终止后台进程。GLM-5.3 是文字模型；GLM-5.3-Flash 支持图片。图片模型独立选择，默认优先 Flash，检测必须通过随机色块挑战。ZCode 0.16.9 对 GLM-5.3 返回的图片支持标记不可靠，因此 Reader 明确拒绝向该文字模型发送图片。
 
 ## 开发验证
 
 常规：`go test ./internal/reader -run '^TestZCode'`（apps/server 目录）。
+
+会话复用：`go test ./internal/reader -run 'Test(Z[Cc]ode|TranslationZcode|ReusableZcode)'`。设置 `READER_TEST_ZCODE_REUSE_LIVE=1` 后运行 `TestTranslationZcodeLiveReuse`，会真实翻译两个单词并检查后台和会话保持一致，消耗 API 额度；耗时仅供诊断，不能视为整篇论文的提速基准。
 
 真实验证需显式设置 `READER_TEST_ZCODE_LIVE=1`；它会调用已配置模型进行一段 JSONL 翻译、随机色块识别和后台取消验证，会消耗 API 额度。未设置时跳过真实调用。
 
