@@ -1,4 +1,7 @@
 module.exports = {
+  ...(process.env.READER_ELECTRON_DIST
+    ? { electronDist: process.env.READER_ELECTRON_DIST }
+    : {}),
   appId: "io.github.cynicalight.reader",
   productName: "Reader",
   directories: { output: "../../release" },
