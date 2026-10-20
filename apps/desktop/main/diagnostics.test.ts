@@ -133,7 +133,13 @@ it("exports all retained sessions and levels without any running server, excludi
   );
   const privateFile = join(root, "credentials");
   writeFileSync(privateFile, "OUTSIDE-SECRET");
-  symlinkSync(privateFile, join(logs.directory, "server-symlink.log"));
+  // Windows directory junctions exercise link exclusion without requiring
+  // Developer Mode or administrator privileges for a file symlink.
+  symlinkSync(
+    process.platform === "win32" ? root : privateFile,
+    join(logs.directory, "server-symlink.log"),
+    process.platform === "win32" ? "junction" : "file",
+  );
   const legacy = join(
     root,
     "library",
@@ -163,7 +169,8 @@ it("exports all retained sessions and levels without any running server, excludi
   // Verify using Python's independent standard ZIP reader, including CRCs.
   const inspected = JSON.parse(
     execFileSync(
-      "python3",
+      process.env.READER_TEST_PYTHON ||
+        (process.platform === "win32" ? "python" : "python3"),
       [
         "-c",
         "import zipfile,json,sys; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))",
@@ -245,7 +252,8 @@ it("removes private user messages from retained server logs during desktop expor
   const output = join(root, "report.zip");
   await logs.export(output, join(root, "library"), {}, {});
   const safe = execFileSync(
-    "python3",
+    process.env.READER_TEST_PYTHON ||
+      (process.platform === "win32" ? "python" : "python3"),
     [
       "-c",
       "import zipfile,sys; print(zipfile.ZipFile(sys.argv[1]).read('logs/server-old.jsonl').decode())",

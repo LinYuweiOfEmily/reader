@@ -22,7 +22,11 @@ it("finds custom names and packages without walking dependencies or symlink loop
   await mkdir(join(root, "Mac.enlp"));
   await mkdir(join(root, "node_modules"));
   await writeFile(join(root, "node_modules", "Hidden.enl"), "");
-  await symlink(root, join(root, "cycle"));
+  await symlink(
+    root,
+    join(root, "cycle"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
   const result = await discoverEndNote(
     [root, root],
     "win32",
