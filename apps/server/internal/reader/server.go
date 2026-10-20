@@ -29,6 +29,7 @@ import (
 )
 
 type Server struct {
+	recommendationMu       sync.Mutex
 	Diagnostics            *diagnostics.Store
 	connectorMu            sync.Mutex
 	connectorAvailable     bool
@@ -95,6 +96,9 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/papers/recommendations", s.getPaperRecommendations)
+	mux.HandleFunc("PUT /api/papers/recommendations/preferences", s.putPaperRecommendationPreferences)
+	mux.HandleFunc("POST /api/papers/recommendations", s.recommendPapers)
 	mux.HandleFunc("POST /api/diagnostics/events", s.recordDiagnostic)
 	mux.HandleFunc("GET /api/diagnostics/export", s.exportDiagnostics)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "ok"}) })

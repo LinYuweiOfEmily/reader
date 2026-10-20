@@ -38,6 +38,9 @@ import type {
   ReadingStatus,
   JournalRankConfig,
   JournalRankResult,
+  PaperRecommendationPreferences,
+  PaperRecommendations,
+  RecommendationRun,
 } from "@reader/core";
 let sessionToken = "";
 export function configureAPI(token: string) {
@@ -140,6 +143,26 @@ function annotationRequest<T>(path: string, init: RequestInit): Promise<T> {
 export type ZoteroScan = components["schemas"]["ZoteroScan"];
 export type ZoteroImportResult = components["schemas"]["ZoteroImportResult"];
 export const api = {
+  getPaperRecommendations: () =>
+    request<PaperRecommendations>("/api/papers/recommendations"),
+  savePaperRecommendationPreferences: (
+    preferences: PaperRecommendationPreferences,
+    signal?: AbortSignal,
+  ) =>
+    request<PaperRecommendationPreferences>(
+      "/api/papers/recommendations/preferences",
+      {
+        method: "PUT",
+        body: JSON.stringify(preferences),
+        signal,
+      },
+    ),
+  recommendPapers: (signal?: AbortSignal) =>
+    request<RecommendationRun>("/api/papers/recommendations", {
+      method: "POST",
+      body: "{}",
+      signal,
+    }),
   journalRankConfig: () =>
     request<JournalRankConfig>("/api/journal-ranks/config"),
   saveJournalRankConfig: (config: {

@@ -762,3 +762,9 @@ export type {
 } from "./proxy-settings";
 export type { UpdateProgress } from "./update-progress";
 export type { CommandLineStatus } from "./command-line";
+export type {
+  PaperRecommendationPreferences,
+  RecommendedPaper,
+  RecommendationRun,
+  PaperRecommendations,
+} from "./recommendations";

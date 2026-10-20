@@ -4,6 +4,155 @@
  */
 
 export interface paths {
+    "/api/papers/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read saved research preferences and the latest 30 recommendation runs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Preferences and recommendation history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaperRecommendations"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Search current paper metadata and ask the selected AI to rank verified candidates */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description A complete validated and persisted recommendation run */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecommendationRun"];
+                    };
+                };
+                /** @description Invalid request or AI connection unavailable */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Another recommendation run is active */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No unread candidates available */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Request canceled */
+                499: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Search or AI generation failed; no new run saved */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Recommendation timed out */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/papers/recommendations/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save editable research interests, search queries and result count */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PaperRecommendationPreferences"];
+                };
+            };
+            responses: {
+                /** @description Saved preferences */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaperRecommendationPreferences"];
+                    };
+                };
+                /** @description Invalid preferences */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/translate-selection": {
         parameters: {
             query?: never;
@@ -3701,6 +3850,50 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PaperRecommendationPreferences: {
+            interests: string;
+            queries: string[];
+            count: number;
+        };
+        RecommendedPaper: {
+            id: string;
+            title: string;
+            authors: string[];
+            date: string;
+            status: string;
+            /** Format: uri */
+            url: string;
+            doi: string;
+            arxiv: string;
+            abstract: string;
+            /** @enum {string} */
+            priority: "high" | "medium" | "low";
+            score: number;
+            scores: {
+                relevance: number;
+                inspiration: number;
+                evidence: number;
+                novelty: number;
+            };
+            reason: string;
+            limitation: string;
+            previousRecommendation: boolean;
+            documentId?: string;
+            /** @description Current library read status, refreshed when history is loaded */
+            read?: boolean;
+        };
+        RecommendationRun: {
+            id: string;
+            createdAt: string;
+            provider: string;
+            preferences: components["schemas"]["PaperRecommendationPreferences"];
+            warnings: string[];
+            papers: components["schemas"]["RecommendedPaper"][];
+        };
+        PaperRecommendations: {
+            preferences: components["schemas"]["PaperRecommendationPreferences"];
+            history: components["schemas"]["RecommendationRun"][];
+        };
         CodexHandoff: {
             /** Format: uuid */
             threadId: string;

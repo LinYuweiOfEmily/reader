@@ -4,6 +4,115 @@
   "security": [{ "session": [] }],
   "paths":
     {
+      "/api/papers/recommendations":
+        {
+          "get":
+            {
+              "summary": "Read saved research preferences and the latest 30 recommendation runs",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Preferences and recommendation history",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/PaperRecommendations",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "summary": "Search current paper metadata and ask the selected AI to rank verified candidates",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "type": "object", "additionalProperties": false },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "A complete validated and persisted recommendation run",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/RecommendationRun",
+                                },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Invalid request or AI connection unavailable",
+                    },
+                  "409":
+                    { "description": "Another recommendation run is active" },
+                  "422": { "description": "No unread candidates available" },
+                  "499": { "description": "Request canceled" },
+                  "502":
+                    {
+                      "description": "Search or AI generation failed; no new run saved",
+                    },
+                  "504": { "description": "Recommendation timed out" },
+                },
+            },
+        },
+      "/api/papers/recommendations/preferences":
+        {
+          "put":
+            {
+              "summary": "Save editable research interests, search queries and result count",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/PaperRecommendationPreferences",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved preferences",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/PaperRecommendationPreferences",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "description": "Invalid preferences" },
+                },
+            },
+        },
       "/api/translate-selection":
         {
           "post":
@@ -4263,6 +4372,140 @@
       "securitySchemes": { "session": { "type": "http", "scheme": "bearer" } },
       "schemas":
         {
+          "PaperRecommendationPreferences":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["interests", "queries", "count"],
+              "properties":
+                {
+                  "interests":
+                    { "type": "string", "minLength": 1, "maxLength": 3000 },
+                  "queries":
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 6,
+                      "items":
+                        { "type": "string", "minLength": 1, "maxLength": 160 },
+                    },
+                  "count": { "type": "integer", "minimum": 3, "maximum": 5 },
+                },
+            },
+          "RecommendedPaper":
+            {
+              "type": "object",
+              "required":
+                [
+                  "id",
+                  "title",
+                  "authors",
+                  "date",
+                  "status",
+                  "url",
+                  "doi",
+                  "arxiv",
+                  "abstract",
+                  "priority",
+                  "score",
+                  "scores",
+                  "reason",
+                  "limitation",
+                  "previousRecommendation",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "title": { "type": "string" },
+                  "authors": { "type": "array", "items": { "type": "string" } },
+                  "date": { "type": "string" },
+                  "status": { "type": "string" },
+                  "url": { "type": "string", "format": "uri" },
+                  "doi": { "type": "string" },
+                  "arxiv": { "type": "string" },
+                  "abstract": { "type": "string" },
+                  "priority":
+                    { "type": "string", "enum": ["high", "medium", "low"] },
+                  "score": { "type": "number", "minimum": 0, "maximum": 10 },
+                  "scores":
+                    {
+                      "type": "object",
+                      "required":
+                        ["relevance", "inspiration", "evidence", "novelty"],
+                      "properties":
+                        {
+                          "relevance":
+                            { "type": "number", "minimum": 0, "maximum": 10 },
+                          "inspiration":
+                            { "type": "number", "minimum": 0, "maximum": 10 },
+                          "evidence":
+                            { "type": "number", "minimum": 0, "maximum": 10 },
+                          "novelty":
+                            { "type": "number", "minimum": 0, "maximum": 10 },
+                        },
+                    },
+                  "reason": { "type": "string" },
+                  "limitation": { "type": "string" },
+                  "previousRecommendation": { "type": "boolean" },
+                  "documentId": { "type": "string" },
+                  "read":
+                    {
+                      "type": "boolean",
+                      "description": "Current library read status, refreshed when history is loaded",
+                    },
+                },
+            },
+          "RecommendationRun":
+            {
+              "type": "object",
+              "required":
+                [
+                  "id",
+                  "createdAt",
+                  "provider",
+                  "preferences",
+                  "warnings",
+                  "papers",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "createdAt": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "preferences":
+                    {
+                      "$ref": "#/components/schemas/PaperRecommendationPreferences",
+                    },
+                  "warnings":
+                    { "type": "array", "items": { "type": "string" } },
+                  "papers":
+                    {
+                      "type": "array",
+                      "maxItems": 5,
+                      "items":
+                        { "$ref": "#/components/schemas/RecommendedPaper" },
+                    },
+                },
+            },
+          "PaperRecommendations":
+            {
+              "type": "object",
+              "required": ["preferences", "history"],
+              "properties":
+                {
+                  "preferences":
+                    {
+                      "$ref": "#/components/schemas/PaperRecommendationPreferences",
+                    },
+                  "history":
+                    {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items":
+                        { "$ref": "#/components/schemas/RecommendationRun" },
+                    },
+                },
+            },
           "CodexHandoff":
             {
               "type": "object",

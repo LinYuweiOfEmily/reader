@@ -1,4 +1,5 @@
 import { PaperColumns, usePaperColumns } from "./PaperColumns";
+import { DailyPapers } from "./DailyPapers";
 import type { TableColumn } from "./columns";
 import { PaperTagFilterButton } from "./PaperTagFilter";
 import { Badge } from "@reader/ui/components/badge";
@@ -212,6 +213,7 @@ export function PaperLibrary({
     ],
   );
   const [merging, setMerging] = useState<Document[] | null>(null);
+  const [dailyPapersOpen, setDailyPapersOpen] = useState(false);
   const [tagging, setTagging] = useState<string[] | null>(null);
   const [journalRankConfig, setJournalRankConfig] =
     useState<JournalRankConfig | null>(null);
@@ -569,6 +571,12 @@ export function PaperLibrary({
   );
   return (
     <main className="library-main paper-library" ref={mainRef}>
+      {dailyPapersOpen && (
+        <DailyPapers
+          onClose={() => setDailyPapersOpen(false)}
+          openDocument={openDocument}
+        />
+      )}
       <header className="library-topbar">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -626,6 +634,13 @@ export function PaperLibrary({
         </div>
         {view !== "trash" && (
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDailyPapersOpen(true)}
+            >
+              今日推荐
+            </Button>
             <div className="search-field paper-search">
               <Search className="size-4" />
               <Input
