@@ -118,6 +118,22 @@ func (s zcodeSnapshot) models() []AgentModel {
 	return out
 }
 
+func (s zcodeSnapshot) selection(ref zcodeModelRef, effort string) map[string]any {
+	if effort == "" {
+		for _, m := range s.Settings.Model.Available {
+			if m.Ref == ref {
+				effort = m.Reasoning.DefaultLevel
+				break
+			}
+		}
+	}
+	selection := map[string]any{"providerId": ref.ProviderID, "modelId": ref.ModelID}
+	if effort != "" {
+		selection["options"] = map[string]string{"reasoningLevel": effort}
+	}
+	return selection
+}
+
 type zcodeFrame struct {
 	ID     json.RawMessage `json:"id"`
 	Method string          `json:"method"`
@@ -335,10 +351,7 @@ func invokeZcode(ctx context.Context, work, model string, in AIInput, delta func
 	if ref.ModelID == "" {
 		ref = s.Settings.Model.Available[0].Ref
 	}
-	selection := map[string]any{"providerId": ref.ProviderID, "modelId": ref.ModelID}
-	if in.Effort != "" {
-		selection["options"] = map[string]string{"reasoningLevel": in.Effort}
-	}
+	selection := s.selection(ref, in.Effort)
 	if len(in.images()) > 0 && strings.EqualFold(ref.ModelID, "glm-5.3") {
 		return "", generationError(ErrorConfiguration, "GLM-5.3 是文字模型，请将图片模型设置为 GLM-5.3-Flash")
 	}

@@ -167,3 +167,18 @@ func TestZCodeVisionSelection(t *testing.T) {
 		t.Fatal("changing image model must invalidate capability checks")
 	}
 }
+
+func TestZCodeDefaultReasoning(t *testing.T) {
+	var snapshot zcodeSnapshot
+	if err := json.Unmarshal([]byte(`{"settings":{"model":{"available":[{"ref":{"providerId":"p","modelId":"m"},"reasoning":{"defaultLevel":"max"}}]}}}`), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	ref := zcodeModelRef{ProviderID: "p", ModelID: "m"}
+	for _, tc := range []struct{ input, want string }{{"", "max"}, {"low", "low"}} {
+		selection := snapshot.selection(ref, tc.input)
+		options, ok := selection["options"].(map[string]string)
+		if !ok || options["reasoningLevel"] != tc.want {
+			t.Fatalf("selection: %#v", selection)
+		}
+	}
+}
