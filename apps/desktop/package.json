@@ -1,7 +1,7 @@
 {
   "name": "@reader/desktop",
   "productName": "Reader",
-  "version": "0.8.6-zcode.1",
+  "version": "0.8.6-zcode.2",
   "private": true,
   "type": "module",
   "main": "dist/main.cjs",
