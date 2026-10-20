@@ -1,5 +1,5 @@
 import { Claude, Kimi, OpenAI } from "@lobehub/icons";
-import { KeyRound } from "lucide-react";
+import { Bot, KeyRound } from "lucide-react";
 
 // The API agent is not one brand, so it uses a neutral key mark.
 function APIIcon({ size = 24 }: { size?: number }) {
@@ -26,6 +26,7 @@ const providers = {
   codex: { Icon: OpenAI, Avatar: OpenAI.Avatar, label: "Codex" },
   claude: { Icon: Claude, Avatar: Claude.Avatar, label: "Claude Code" },
   kimi: { Icon: Kimi, Avatar: Kimi.Avatar, label: "Kimi Code" },
+  zcode: { Icon: Bot, Avatar: Bot, label: "ZCode" },
   api: { Icon: APIIcon, Avatar: APIAvatar, label: "API" },
 };
 

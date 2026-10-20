@@ -19,6 +19,14 @@ type Provider struct {
 
 func providerStatus(ctx context.Context, name string) Provider {
 	p := Provider{ID: name, Status: "未安装"}
+	if name == "zcode" {
+		_, err := zcodeHome()
+		p.Installed = err == nil
+		if p.Installed {
+			p.Status = "请配置 ZCode API Key 后测试可用性"
+		}
+		return p
+	}
 	exe, err := exec.LookPath(name)
 	if err != nil {
 		return p
@@ -54,9 +62,12 @@ func providerStatus(ctx context.Context, name string) Provider {
 }
 func (s *Server) providers(w http.ResponseWriter, r *http.Request) {
 	out := []Provider{}
-	for _, name := range []string{"codex", "claude", "kimi"} {
+	for _, name := range []string{"codex", "claude", "kimi", "zcode"} {
 		if r.URL.Query().Get("auth") == "skip" {
 			_, err := exec.LookPath(name)
+			if name == "zcode" {
+				_, err = zcodeHome()
+			}
 			status := "未安装"
 			if err == nil {
 				status = "待检测"

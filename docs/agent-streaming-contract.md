@@ -49,7 +49,7 @@ Codex 文档会话保留持久 thread，并在同一 turn 内读取和回答。A
 | 项目             | 本轮固定约定                                                                                                                                                                                    |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 接口与认证       | `POST /api/documents/{documentId}/chat`；Reader 会话 Bearer token；JSON 请求。不是 Agent API Key。                                                                                              |
-| 必填请求字段     | `provider: "codex" \| "claude" \| "kimi" \| "api"`、`prompt: string`、`context: string`；context 可为空。                                                                                       |
+| 必填请求字段     | `provider: "codex" \| "claude" \| "kimi" \| "zcode" \| "api"`、`prompt: string`、`context: string`；context 可为空。                                                                                       |
 | 可选请求字段     | `references: SourceReference[]`、`attachments: string[]`，省略等价于空数组；附件是当前文档块 ID。不新增 connectionId 或客户端模型/认证字段。                                                    |
 | 事件与 JSON data | `status {status:"reading"\|"reading-image"}`、`delta {text:string}`、`fallback {message:string}`、`error {error:string}`、`done {ok:true}`。仍使用独立 SSE event 行，不另包 type/payload 外壳。 |
 | 正文             | delta 仅为新增原始文本，保留空格/换行；按到达顺序追加。不是累计全文、HTML 或 AST，不携带推理/工具/日志。                                                                                        |
@@ -252,3 +252,7 @@ READER_TEST_STREAM_PROVIDER=kimi go test ./internal/reader -run '^TestLiveAgentS
 [OpenAPI](./openapi.yaml) 的 `ChatStreamEvent` 描述原有五事件与可选 `activity` 扩展；`text/event-stream` 实际仍是 SSE 文本，没有 JSON envelope。生成类型位于 `packages/api-client/src/schema.d.ts`。可共用 [v1 fixtures](./fixtures/agent-streaming-v1.json)，覆盖成功、文档工具状态、备用、部分失败和无终态断流。`TestFrozenStreamFixtures` 通过实际 writer 回放，检查事件形状、正文追加及终态后拒绝事件；前端使用相同文档工具 fixture 验证状态不混入正文。
 
 本轮真实 CLI 的版本、文字/合成图片首段与完成时间、取消结果及未验证项，以 [后端进度](./implementation/backend-streaming-progress.md) 为准。上文原有历史实测仅描述先前基线。Claude 未登录、商业备用 API 实测、合并前端后的真实人工验收仍待完成；模拟协议和 HTTP gated 测试不替代这些验收。
+
+## Windows ZCode（0.8.6-zcode.1）
+
+沿用上述 SSE 事件与完成/取消规则。原生 ZCode Protocol v1 的 `model.streaming` 正文增量映射为 delta；忽略推理与工具内容，要求 `turn.completed` success 且全文匹配。文字与图片均沿用此规则；图片使用独立模型配置，GLM-5.3 文字模型不能作为图片模型。

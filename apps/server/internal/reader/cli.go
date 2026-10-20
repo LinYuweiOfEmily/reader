@@ -31,6 +31,9 @@ func invokeCLI(ctx context.Context, root, provider, model string, in AIInput, de
 		return "", generationError(ErrorConfiguration, "无法创建隔离的 Agent 工作目录")
 	}
 	defer os.RemoveAll(work)
+	if provider == "zcode" {
+		return invokeZcode(ctx, work, model, in, delta)
+	}
 	if provider == "kimi" {
 		return invokeKimi(ctx, work, model, in, delta, metrics...)
 	}

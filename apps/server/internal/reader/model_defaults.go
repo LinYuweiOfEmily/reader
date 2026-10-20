@@ -11,7 +11,7 @@ type modelTask string
 const (
 	taskChat        modelTask = "chat"
 	taskTranslation modelTask = "translation"
-	// Only the API agent picks a separate model for image input.
+	// API and ZCode pick a separate model for image input.
 	taskVision modelTask = "vision"
 )
 
@@ -36,7 +36,8 @@ var taskFamilies = map[modelTask]map[string][]string{
 		"":       {"luna", "sonnet", "flash", "mini", "lite", "haiku"},
 	},
 	taskVision: {
-		"api": {"vl", "vision", "flash", "omni"},
+		"api":   {"vl", "vision", "flash", "omni"},
+		"zcode": {"flash", "vision", "vl"},
 	},
 }
 
@@ -110,7 +111,7 @@ func defaultTaskModel(task modelTask, provider string, models []AgentModel) stri
 
 func taskRecommendations(provider string, models []AgentModel) []AgentModel {
 	out := append([]AgentModel{}, models...)
-	for _, task := range []modelTask{taskChat, taskTranslation} {
+	for _, task := range []modelTask{taskChat, taskTranslation, taskVision} {
 		id := defaultTaskModel(task, provider, out)
 		for i := range out {
 			if out[i].ID == id {

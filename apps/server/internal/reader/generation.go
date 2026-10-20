@@ -117,7 +117,7 @@ func (s *Server) taskGenerationService(config AIConfig, task modelTask) *Generat
 			log.Printf("cannot persist %s capability failure: %v", provider, saveErr)
 		}
 	}
-	for _, p := range []string{"codex", "claude", "kimi", "api", "text-api", "image-api"} {
+	for _, p := range []string{"codex", "claude", "kimi", "zcode", "api", "text-api", "image-api"} {
 		model := models[p]
 		level := efforts[p][model]
 		if level == "" {
@@ -125,6 +125,14 @@ func (s *Server) taskGenerationService(config AIConfig, task modelTask) *Generat
 		}
 		cli := configuredCLIAdapter{cliAdapter{s.Store.Root, p, model}, level, task, s.modelCatalog}
 		var adapter Adapter = cli
+		if p == "zcode" {
+			visionModel := config.VisionModels[p]
+			visionLevel := config.VisionEfforts[p][visionModel]
+			if visionLevel == "" {
+				visionLevel = "medium"
+			}
+			adapter = zcodeTaskAdapter{cli, configuredCLIAdapter{cliAdapter{s.Store.Root, p, visionModel}, visionLevel, taskVision, s.modelCatalog}}
+		}
 		if p == "codex" {
 			adapter = codexChatAdapter{cli, &s.codexChat}
 		}
@@ -161,6 +169,9 @@ type configuredCLIAdapter struct {
 func (a configuredCLIAdapter) streamWith(ctx context.Context, req GenerateRequest, emit func(ProviderEvent) error, run func(cliAdapter, GenerateRequest, func(ProviderEvent) error) (GenerateResult, error)) (GenerateResult, error) {
 	models, err := a.catalog(ctx, a.provider)
 	if err != nil {
+		if a.provider == "zcode" {
+			return GenerateResult{}, generationError(ErrorConfiguration, err.Error())
+		}
 		return GenerateResult{}, generationError(ErrorConfiguration, "无法获取模型的 Effort 配置，请重试")
 	}
 	cli := a.cliAdapter
@@ -366,7 +377,7 @@ func (g *GenerationService) generate(ctx context.Context, in AIInput, interactiv
 	var result GenerateResult
 	err := generationError(ErrorCapability, "主 Agent 尚未通过所需能力测试")
 	// Existing Codex/Claude text chat works with CLI login without a saved probe.
-	if primary.VerifiedText && (!vision || primary.VerifiedVision) || interactive && !vision && g.primary != "kimi" && g.primary != "api" {
+	if primary.VerifiedText && (!vision || primary.VerifiedVision) || interactive && !vision && g.primary != "kimi" && g.primary != "zcode" && g.primary != "api" {
 		result, err = g.attempt(ctx, g.primary, in, send)
 	}
 	if err == nil {
@@ -402,7 +413,7 @@ func (g *GenerationService) ValidateInput(in AIInput, interactive bool) error {
 	}
 	vision := len(in.images()) > 0
 	p := g.connections[g.primary]
-	if p.VerifiedText && (!vision || p.VerifiedVision) || interactive && !vision && g.primary != "kimi" && g.primary != "api" {
+	if p.VerifiedText && (!vision || p.VerifiedVision) || interactive && !vision && g.primary != "kimi" && g.primary != "zcode" && g.primary != "api" {
 		return nil
 	}
 	target := "text-api"

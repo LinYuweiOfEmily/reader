@@ -130,7 +130,7 @@ export function AssistantPanel({
                       {answer.activity ? (
                         <BookOpen size={16} strokeWidth={1.5} />
                       ) : answer.fallback ||
-                        !["codex", "claude", "kimi", "api"].includes(
+                        !["codex", "claude", "kimi", "zcode", "api"].includes(
                           answer.input.provider,
                         ) ? (
                         <LoaderCircle size={16} />

@@ -1896,7 +1896,13 @@
                                   "provider":
                                     {
                                       "enum":
-                                        ["codex", "claude", "kimi", "api"],
+                                        [
+                                          "codex",
+                                          "claude",
+                                          "kimi",
+                                          "zcode",
+                                          "api",
+                                        ],
                                     },
                                   "attachments":
                                     {
@@ -2491,7 +2497,7 @@
                     "schema":
                       {
                         "type": "string",
-                        "enum": ["codex", "claude", "kimi", "api"],
+                        "enum": ["codex", "claude", "kimi", "zcode", "api"],
                       },
                   },
                 ],
@@ -5019,7 +5025,7 @@
                   "id":
                     {
                       "type": "string",
-                      "enum": ["codex", "claude", "kimi", "api"],
+                      "enum": ["codex", "claude", "kimi", "zcode", "api"],
                     },
                   "installed": { "type": "boolean" },
                   "authenticated": { "type": "boolean" },

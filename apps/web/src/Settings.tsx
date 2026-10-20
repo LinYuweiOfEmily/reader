@@ -1136,6 +1136,9 @@ export function Settings({
                       <SelectItem value="kimi">
                         <ProviderIdentity provider="kimi" />
                       </SelectItem>
+                      <SelectItem value="zcode">
+                        <ProviderIdentity provider="zcode" />
+                      </SelectItem>
                       <SelectItem value="api">
                         <ProviderIdentity provider="api" />
                       </SelectItem>
@@ -1157,56 +1160,64 @@ export function Settings({
                 </div>
               )}
               <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
-                {(["codex", "claude", "kimi", "api"] as const).map((name) => {
-                  const p = providers.find((p) => p.id === name);
-                  const capability = config?.capabilities[name];
-                  const pending = testing.has(name);
+                {(["codex", "claude", "kimi", "zcode", "api"] as const).map(
+                  (name) => {
+                    const p = providers.find((p) => p.id === name);
+                    const capability = config?.capabilities[name];
+                    const pending = testing.has(name);
 
-                  if (name === "api")
+                    if (name === "api")
+                      return (
+                        <Button
+                          key={name}
+                          variant="outline"
+                          className="h-auto min-h-28 min-w-0 flex-col items-stretch justify-start gap-0 rounded-xl border-border bg-transparent p-4 text-left font-normal whitespace-normal hover:bg-muted/50 dark:border-border dark:bg-transparent"
+                          onClick={() => setAPIDetails(true)}
+                          aria-label="配置 API Key"
+                        >
+                          <span className="flex w-full items-center gap-3">
+                            <span className="flex-1 text-base font-medium">
+                              <ProviderIdentity provider={name} size={36} />
+                            </span>
+                            {!loading && !p?.installed && (
+                              <Badge variant="outline">未配置</Badge>
+                            )}
+                          </span>
+                          {p?.installed ? (
+                            apiCardStatus()
+                          ) : (
+                            <span className="mt-3 text-xs text-muted-foreground">
+                              点击卡片配置你的apikey
+                            </span>
+                          )}
+                        </Button>
+                      );
+
                     return (
-                      <Button
+                      <div
                         key={name}
-                        variant="outline"
-                        className="h-auto min-h-28 min-w-0 flex-col items-stretch justify-start gap-0 rounded-xl border-border bg-transparent p-4 text-left font-normal whitespace-normal hover:bg-muted/50 dark:border-border dark:bg-transparent"
-                        onClick={() => setAPIDetails(true)}
-                        aria-label="配置 API Key"
+                        className="min-h-28 min-w-0 rounded-xl border p-4"
                       >
-                        <span className="flex w-full items-center gap-3">
+                        <div className="flex items-center gap-3">
                           <span className="flex-1 text-base font-medium">
                             <ProviderIdentity provider={name} size={36} />
                           </span>
                           {!loading && !p?.installed && (
-                            <Badge variant="outline">未配置</Badge>
+                            <Badge variant="outline">未安装</Badge>
                           )}
-                        </span>
-                        {p?.installed ? (
-                          apiCardStatus()
-                        ) : (
-                          <span className="mt-3 text-xs text-muted-foreground">
-                            点击卡片配置你的apikey
-                          </span>
+                        </div>
+                        {name === "zcode" && p?.installed && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            在 ZCode 中配置 API Key。图片请选择
+                            GLM-5.3-Flash；GLM-5.3 仅支持文字。
+                          </p>
                         )}
-                      </Button>
-                    );
-
-                  return (
-                    <div
-                      key={name}
-                      className="min-h-28 min-w-0 rounded-xl border p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="flex-1 text-base font-medium">
-                          <ProviderIdentity provider={name} size={36} />
-                        </span>
-                        {!loading && !p?.installed && (
-                          <Badge variant="outline">未安装</Badge>
-                        )}
+                        {(pending || p?.installed || capability) &&
+                          checkStatus(name, capability)}
                       </div>
-                      {(pending || p?.installed || capability) &&
-                        checkStatus(name, capability)}
-                    </div>
-                  );
-                })}
+                    );
+                  },
+                )}
               </div>
               <p className="mt-4 flex gap-2 text-xs leading-5 text-muted-foreground">
                 <CircleHelp className="mt-0.5 size-4 shrink-0" />

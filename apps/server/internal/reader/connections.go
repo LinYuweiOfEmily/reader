@@ -99,7 +99,9 @@ type AIResult struct {
 	Fallback  bool
 }
 
-func validAgent(p string) bool { return p == "codex" || p == "claude" || p == "kimi" || p == "api" }
+func validAgent(p string) bool {
+	return p == "codex" || p == "claude" || p == "kimi" || p == "zcode" || p == "api"
+}
 func (s *Server) aiConfig() AIConfig {
 	s.configMu.Lock()
 	defer s.configMu.Unlock()
@@ -184,6 +186,10 @@ func configPrint(c AIConfig, p string) string {
 	} else {
 		path, _ := exec.LookPath(p)
 		value = []string{p, path, c.Models[p]}
+		if p == "zcode" {
+			home, _ := zcodeHome()
+			value = []string{p, home, c.Models[p], c.VisionModels[p]}
+		}
 	}
 	b, _ := json.Marshal(value)
 	h := sha256.Sum256(b)
@@ -486,10 +492,15 @@ func (s *Server) probeConnection(parent context.Context, c AIConfig, p string, i
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	model := c.Models[p]
+	task := taskChat
+	if p == "zcode" && len(in.images()) > 0 {
+		model = c.VisionModels[p]
+		task = taskVision
+	}
 	if model == "" && validAgent(p) {
 		// Test the model chat will actually use. Catalog failure keeps the CLI default.
 		if models, err := s.modelCatalog(ctx, p); err == nil {
-			model = defaultTaskModel(taskChat, p, models)
+			model = defaultTaskModel(task, p, models)
 		}
 	}
 	var adapter Adapter = cliAdapter{s.Store.Root, p, model}

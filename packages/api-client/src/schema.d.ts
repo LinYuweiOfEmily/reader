@@ -1593,7 +1593,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         /** @enum {unknown} */
-                        provider: "codex" | "claude" | "kimi" | "api";
+                        provider: "codex" | "claude" | "kimi" | "zcode" | "api";
                         attachments?: string[];
                         /** @description Stable client-generated user message ID. Reuse only for explicit regeneration of the same unanswered last question, with unchanged prompt, context, references, attachments and reading location. The server uses current model settings, does not insert a duplicate question, and returns 409 if the turn has an answer or later messages. Omit for legacy clients. */
                         userMessageId?: string;
@@ -2142,7 +2142,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    provider: "codex" | "claude" | "kimi" | "api";
+                    provider: "codex" | "claude" | "kimi" | "zcode" | "api";
                 };
                 header?: never;
                 path?: never;
@@ -3978,7 +3978,7 @@ export interface components {
         };
         Provider: {
             /** @enum {string} */
-            id: "codex" | "claude" | "kimi" | "api";
+            id: "codex" | "claude" | "kimi" | "zcode" | "api";
             installed: boolean;
             authenticated: boolean;
             status: string;

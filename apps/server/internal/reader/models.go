@@ -51,7 +51,11 @@ func (s *Server) agentModels(w http.ResponseWriter, r *http.Request) {
 	}
 	models, err := s.modelCatalog(ctx, provider)
 	if err != nil {
-		fail(w, 502, "无法获取模型列表，请确认 Agent 已登录后重试")
+		if provider == "zcode" {
+			fail(w, 502, err.Error())
+		} else {
+			fail(w, 502, "无法获取模型列表，请确认 Agent 已登录后重试")
+		}
 		return
 	}
 	respond(w, 200, taskRecommendations(provider, models))
@@ -68,6 +72,9 @@ func discoverModels(ctx context.Context, root, provider string) ([]AgentModel, e
 		return nil, err
 	}
 	defer os.RemoveAll(work)
+	if provider == "zcode" {
+		return discoverZcodeModels(ctx, work)
+	}
 	args := []string{"app-server", "--listen", "stdio://", "-c", "features.hooks=false", "-c", "features.plugins=false", "-c", "mcp_servers={}"}
 	if provider == "claude" {
 		args = append(claudeArgs(), "--input-format", "stream-json")
