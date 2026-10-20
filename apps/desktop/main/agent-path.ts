@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { lstat, readdir } from "node:fs/promises";
 import { posix, win32 } from "node:path";
 
 const marker = "__READER_AGENT_PATH__";
@@ -20,6 +21,45 @@ const run: Run = (file, args, env) =>
       (error, stdout) => (error ? reject(error) : resolve(stdout)),
     );
   });
+
+// Desktop updates leave versioned bundles beside other runtimes. Discover only
+// non-empty CLI files, without executing candidates or reading account data.
+async function windowsCodexPaths(env: NodeJS.ProcessEnv, home: string) {
+  const local =
+    env.LOCALAPPDATA && win32.isAbsolute(env.LOCALAPPDATA)
+      ? env.LOCALAPPDATA
+      : win32.join(home, "AppData", "Local");
+  const root = win32.join(local, "OpenAI", "Codex", "bin");
+  try {
+    const bundles = await readdir(root, { withFileTypes: true });
+    const candidates = await Promise.all(
+      bundles
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          const directory = win32.join(root, entry.name);
+          if (directory.includes(";")) return undefined;
+          try {
+            const executable = await lstat(win32.join(directory, "codex.exe"));
+            return executable.isFile() && executable.size > 0
+              ? { directory, modified: executable.mtimeMs }
+              : undefined;
+          } catch {
+            return undefined;
+          }
+        }),
+    );
+    return candidates
+      .filter((entry) => entry !== undefined)
+      .sort(
+        (a, b) =>
+          b.modified - a.modified || a.directory.localeCompare(b.directory),
+      )
+      .map((entry) => entry.directory);
+  } catch {
+    // The desktop app is optional; a missing/unreadable install is harmless.
+    return [];
+  }
+}
 
 /** Shared by provider detection and every CLI child of the Go server. */
 export async function agentPath(
@@ -83,5 +123,6 @@ export async function agentPath(
       // npm need not be installed for native CLI distributions.
     }
   }
+  if (windows) entries.push(...(await windowsCodexPaths(env, home)));
   return merge();
 }
