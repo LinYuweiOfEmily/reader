@@ -319,14 +319,20 @@ func (c *Client) openReviewResult(ctx context.Context, id string) (Result, error
 func pageMeta(page []byte) (map[string][]string, []string) {
 	tags := map[string][]string{}
 	links := []string{}
+	var articles []map[string]any
+	jsonBytes := 0
+	jsonComplete := true
 	z := nethtml.NewTokenizer(bytes.NewReader(page))
 	for {
 		switch z.Next() {
 		case nethtml.ErrorToken:
+			if len(articles) == 1 && jsonBytes <= 256<<10 && jsonComplete {
+				applyScholarlyNode(tags, articles[0])
+			}
 			return tags, links
 		case nethtml.StartTagToken, nethtml.SelfClosingTagToken:
 			name, hasAttr := z.TagName()
-			if !hasAttr || (string(name) != "meta" && string(name) != "a") {
+			if !hasAttr || (string(name) != "meta" && string(name) != "a" && string(name) != "link" && string(name) != "script") {
 				continue
 			}
 			attrs := map[string]string{}
@@ -336,6 +342,29 @@ func pageMeta(page []byte) (map[string][]string, []string) {
 				if !more {
 					break
 				}
+			}
+			if string(name) == "script" {
+				if strings.EqualFold(strings.TrimSpace(attrs["type"]), "application/ld+json") && z.Next() == nethtml.TextToken {
+					body := z.Text()
+					jsonBytes += len(body)
+					if jsonBytes <= 256<<10 {
+						nodes, complete := scholarlyNodes(body)
+						jsonComplete = jsonComplete && complete
+						articles = append(articles, nodes...)
+					}
+				}
+				continue
+			}
+			if string(name) == "link" {
+				if strings.EqualFold(strings.TrimSpace(attrs["type"]), "application/pdf") {
+					for _, rel := range strings.Fields(strings.ToLower(attrs["rel"])) {
+						if rel == "alternate" && attrs["href"] != "" {
+							tags["alternate_pdf_url"] = append(tags["alternate_pdf_url"], attrs["href"])
+							break
+						}
+					}
+				}
+				continue
 			}
 			if string(name) == "a" {
 				if href := attrs["href"]; strings.HasSuffix(strings.ToLower(strings.SplitN(href, "?", 2)[0]), ".pdf") {
@@ -364,15 +393,15 @@ func pageMetadata(tags map[string][]string, page string) Metadata {
 		return ""
 	}
 	m := Metadata{
-		Title:     first("citation_title", "dc.title", "og:title"),
-		Date:      first("citation_publication_date", "citation_date", "citation_online_date", "dc.date"),
+		Title:     first("citation_title", "dc.title", "dcterms.title", "jsonld.title", "og:title"),
+		Date:      first("citation_publication_date", "citation_date", "citation_online_date", "dc.date", "dcterms.date", "jsonld.date"),
 		Venue:     first("citation_journal_title", "citation_conference_title", "citation_inbook_title"),
 		Volume:    first("citation_volume"),
 		Issue:     first("citation_issue"),
-		Publisher: first("citation_publisher", "dc.publisher"),
-		DOI:       strings.TrimPrefix(first("citation_doi", "dc.identifier"), "doi:"),
+		Publisher: first("citation_publisher", "dc.publisher", "jsonld.publisher"),
+		DOI:       pageDOIFromTags(tags),
 		ArXiv:     first("citation_arxiv_id"),
-		Abstract:  first("citation_abstract"),
+		Abstract:  first("citation_abstract", "dcterms.abstract", "dc.description", "dcterms.description", "jsonld.abstract"),
 		URL:       page,
 	}
 	if first, last := first("citation_firstpage"), first("citation_lastpage"); first != "" {
@@ -396,7 +425,17 @@ func pageMetadata(tags map[string][]string, page string) Metadata {
 	if !doiText.MatchString(m.DOI) {
 		m.DOI = ""
 	}
-	for _, a := range tags["citation_author"] {
+	authors := tags["citation_author"]
+	if len(authors) == 0 {
+		authors = tags["dc.creator"]
+	}
+	if len(authors) == 0 {
+		authors = tags["dcterms.creator"]
+	}
+	if len(authors) == 0 {
+		authors = tags["jsonld.author"]
+	}
+	for _, a := range authors {
 		if len(m.Creators) == 200 {
 			break
 		}
@@ -427,31 +466,50 @@ func (c *Client) pageResult(ctx context.Context, raw string) (Result, error) {
 		return Result{}, Error{"链接打开的不是 PDF 或论文页面"}
 	}
 	tags, links := pageMeta(data)
-	m := pageMetadata(tags, raw)
-	pdfURL := ""
-	if v := tags["citation_pdf_url"]; len(v) > 0 {
-		pdfURL = v[0]
-	} else if len(links) > 0 {
-		pdfURL = links[0]
-	}
-	if pdfURL != "" {
-		if base, e := url.Parse(final); e == nil {
-			if ref, e := base.Parse(html.UnescapeString(pdfURL)); e == nil {
-				if pdf, e := c.pdf(ctx, ref.String()); e == nil {
-					return Result{PDF: pdf, Filename: filename(ref.String(), "paper.pdf"), Metadata: m}, nil
-				}
-			}
+	m := pageMetadata(tags, final)
+	var downloadErr error
+	for _, candidate := range pagePDFCandidates(tags, links, final) {
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
+		}
+		pdf, e := c.pdf(ctx, candidate)
+		if e == nil {
+			return Result{PDF: pdf, Filename: filename(candidate, "paper.pdf"), Metadata: m}, nil
+		}
+		if downloadErr == nil || errors.Is(downloadErr, ErrNotFound) {
+			downloadErr = e
+		}
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
 		}
 	}
 	if m.ArXiv != "" {
 		r, e := c.arxivResult(ctx, m.ArXiv)
 		if e == nil {
 			r.Metadata = overlay(r.Metadata, m)
+			return r, nil
 		}
-		return r, e
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
+		}
+		if downloadErr == nil {
+			downloadErr = e
+		}
 	}
 	if m.DOI != "" && !strings.Contains(raw, m.DOI) {
-		return c.doiResult(ctx, m.DOI)
+		r, e := c.doiResult(ctx, m.DOI)
+		if e == nil {
+			return r, nil
+		}
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
+		}
+		if downloadErr == nil {
+			downloadErr = e
+		}
+	}
+	if downloadErr != nil {
+		return Result{}, downloadErr
 	}
 	if m.Title != "" {
 		return Result{}, Error{fmt.Sprintf("找到了《%s》，但页面里没有可以下载的 PDF。可能需要登录或订阅，请下载后拖进来", m.Title)}
