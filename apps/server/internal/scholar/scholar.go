@@ -6,13 +6,12 @@ package scholar
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -61,6 +60,8 @@ func (e Error) Error() string { return e.Message }
 var ErrNotFound = Error{"没有找到这篇论文"}
 
 type Client struct {
+	networkOnce     sync.Once
+	networkState    *networkState
 	HTTP            *http.Client
 	ArXivAPI        string
 	ArXivPDF        string
@@ -85,9 +86,12 @@ func New(maxPDF int64) *Client {
 		DOIResolver:     "https://doi.org/",
 		MaxPDF:          maxPDF,
 	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSHandshakeTimeout = 15 * time.Second
+	transport.ResponseHeaderTimeout = 30 * time.Second
 	c.HTTP = &http.Client{
 		Timeout:   90 * time.Second,
-		Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, TLSHandshakeTimeout: 15 * time.Second, ResponseHeaderTimeout: 30 * time.Second},
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 8 {
 				return errors.New("too many redirects")
@@ -146,52 +150,6 @@ func (c *Client) checkURL(u *url.URL) error {
 }
 
 const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36 Reader"
-
-func (c *Client) get(ctx context.Context, raw, accept string, limit int64) ([]byte, string, string, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return nil, "", "", Error{"链接无效"}
-	}
-	if err = c.checkURL(u); err != nil {
-		return nil, "", "", err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, "", "", Error{"链接无效"}
-	}
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Accept", accept)
-	req.Header.Set("Accept-Language", "en,zh;q=0.8")
-	res, err := c.HTTP.Do(req)
-	if err != nil {
-		var e Error
-		if errors.As(err, &e) {
-			return nil, "", "", e
-		}
-		if ctx.Err() != nil {
-			return nil, "", "", ctx.Err()
-		}
-		return nil, "", "", Error{fmt.Sprintf("无法连接 %s，请检查网络或代理", u.Host)}
-	}
-	defer res.Body.Close()
-	if res.StatusCode == http.StatusNotFound || res.StatusCode == http.StatusGone {
-		return nil, "", "", ErrNotFound
-	}
-	if res.StatusCode == http.StatusTooManyRequests {
-		return nil, "", "", Error{fmt.Sprintf("%s 请求过于频繁，请稍后重试", u.Host)}
-	}
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return nil, "", "", Error{fmt.Sprintf("%s 返回 %d", u.Host, res.StatusCode)}
-	}
-	data, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
-	if err != nil {
-		return nil, "", "", Error{fmt.Sprintf("从 %s 下载未完成", u.Host)}
-	}
-	if int64(len(data)) > limit {
-		return nil, "", "", Error{fmt.Sprintf("文件超过 %d MB", limit>>20)}
-	}
-	return data, res.Header.Get("Content-Type"), res.Request.URL.String(), nil
-}
 
 func (c *Client) pdf(ctx context.Context, raw string) ([]byte, error) {
 	data, _, _, err := c.get(ctx, raw, "application/pdf,*/*;q=0.8", c.MaxPDF)

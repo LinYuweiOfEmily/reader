@@ -128,7 +128,7 @@ func (c *Client) recommendationsArxiv(ctx context.Context, queries []string, lim
 		"search_query": {strings.Join(parts, " OR ")},
 		"start":        {"0"}, "max_results": {strconv.Itoa(limit)}, "sortBy": {"relevance"}, "sortOrder": {"descending"},
 	}
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 35*time.Second)
 	defer cancel()
 	data, _, _, err := c.get(ctx, c.ArXivAPI+"?"+params.Encode(), "application/atom+xml", 4<<20)
 	if err != nil {
@@ -179,7 +179,7 @@ func (c *Client) recommendationsArxiv(ctx context.Context, queries []string, lim
 
 func (c *Client) recommendationsS2(ctx context.Context, query string, limit int) ([]Metadata, error) {
 	params := url.Values{"query": {query}, "limit": {strconv.Itoa(limit)}, "fields": {s2Fields}}
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 35*time.Second)
 	defer cancel()
 	data, _, _, err := c.get(ctx, strings.TrimRight(c.SemanticScholar, "/")+"/search?"+params.Encode(), "application/json", 4<<20)
 	if err != nil {

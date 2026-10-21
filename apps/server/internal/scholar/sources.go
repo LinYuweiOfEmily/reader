@@ -66,7 +66,7 @@ func (c *Client) arxivMetadata(ctx context.Context, id string) (Metadata, error)
 
 func (c *Client) arxivPDF(ctx context.Context, id string) ([]byte, error) {
 	data, err := c.pdf(ctx, c.ArXivPDF+id)
-	if err != nil && bareArXiv(id) != id {
+	if errors.Is(err, ErrNotFound) && bareArXiv(id) != id {
 		// A version in a link may not exist (yet); fall back to the latest.
 		return c.pdf(ctx, c.ArXivPDF+bareArXiv(id))
 	}
