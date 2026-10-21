@@ -12,11 +12,11 @@
 - 当前已经具备缓存和串行处理的 easyScholar 保留现状；本次集中解决论文来源，不添加未提供的 S2 API Key，也不扩大为代理设置改版。
 
 ## 步骤与验证
-- [ ] 写网络回归测试并观察失败：合并、冷却、重试、取消、缓存边界、串行限速、重定向。
-- [ ] 实现 scholar 网络层，运行 scholar 测试；提交独立网络修复。
-- [ ] 写并实现网页结构化元数据/候选 PDF 测试；独立提交导入改进。
-- [ ] 审查取消、资源释放、缓存上限和错误分类，完成 pnpm typecheck/test/build。全量既有 Windows 测试失败须如实记录。
-- [ ] 更新使用文档；只提交本任务文件，不推送、不覆盖安装中应用。用户本轮未要求重新打包，交付源码和验证结果。
+- [x] 写网络回归测试并观察失败：合并、冷却、重试、取消、缓存边界、串行限速、重定向。
+- [x] 实现 scholar 网络层，运行 scholar 测试；提交独立网络修复。
+- [x] 写并实现网页结构化元数据/候选 PDF 测试；独立提交导入改进。
+- [x] 审查取消、资源释放、缓存上限和错误分类，执行 pnpm typecheck/test/build。全量既有 Windows 测试失败已如实记录。
+- [x] 更新使用文档；只提交本任务文件，不推送、不覆盖安装中应用。用户本轮未要求重新打包，交付源码和验证结果。
 
 ## 参考
 - https://info.arxiv.org/help/api/tou.html
@@ -24,3 +24,11 @@
 - https://pkg.go.dev/golang.org/x/sync/singleflight
 - https://www.zotero.org/support/dev/translators
 - https://schema.org/ScholarlyArticle
+
+## 已执行验证
+- 网络缺陷红阶段：重复查询 6 次、冷却不生效、503 不重试、限流错误切换版本；修复后通过。
+- 重点 Go 集成测试 scholar/reader 通过；推荐界面和 Windows 代理 36 项测试通过。
+- pnpm typecheck/build 通过。pnpm test 仍在原有 TestRedactionAndFullExport 与 Agent 流式模拟测试失败/90 秒总超时，未将其视为新网络回归。
+- 2026-10-21 当前代理真实 arXiv：首次 1.052 秒返回 3 篇，第二次缓存命中，累计外部请求保持 1 次。
+- 最终修复后 scholar 全包测试通过（12.108 秒），build:server 再构建通过。网页复核无剩余 P1/P2。
+- 网络修复提交 `cd43871`；网页导入修复提交 `d69407f`。未推送，未生成或安装新版 EXE。
